@@ -1,0 +1,103 @@
+plugins {
+  id "java"
+
+  id "com.github.johnrengelman.shadow" version "7.0.0"
+  id "com.diffplug.spotless" version "6.1.2"
+
+  id "io.opentelemetry.instrumentation.muzzle-generation" version "1.12.0-alpha-SNAPSHOT"
+  id "io.opentelemetry.instrumentation.muzzle-check" version "1.12.0-alpha-SNAPSHOT"
+}
+
+group 'com.github.sshota0809'
+version '1.0'
+
+ext {
+  versions = [
+    opentelemetry              : "1.9.1",
+    opentelemetryAlpha         : "1.9.1-alpha",
+    opentelemetryJavaagent     : "1.12.0-SNAPSHOT",
+    opentelemetryJavaagentAlpha: "1.12.0-alpha-SNAPSHOT",
+  ]
+
+  deps = [
+    autoservice: dependencies.create(group: 'com.google.auto.service', name: 'auto-service', version: '1.0')
+  ]
+}
+
+repositories {
+  mavenCentral()
+  maven {
+    name = "sonatype"
+    url = uri("https://oss.sonatype.org/content/repositories/snapshots")
+  }
+}
+
+configurations {
+  otel
+}
+
+spotless {
+  java {
+    target("src/**/*.java")
+  }
+}
+
+dependencies {
+  compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${versions.opentelemetryAlpha}")
+  compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-instrumentation-api:${versions.opentelemetryJavaagentAlpha}")
+  compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api:${versions.opentelemetryJavaagentAlpha}")
+
+  compileOnly deps.autoservice
+  annotationProcessor deps.autoservice
+
+  compileOnly group: 'javax.servlet', name: 'javax.servlet-api', version: '3.0.1'
+
+  implementation 'org.apache.commons:commons-lang3:3.11'
+
+  testImplementation("org.testcontainers:testcontainers:1.16.2")
+  testImplementation("com.fasterxml.jackson.core:jackson-databind:2.11.2")
+  testImplementation("com.google.protobuf:protobuf-java-util:3.12.4")
+  testImplementation("com.squareup.okhttp3:okhttp:3.12.12")
+  testImplementation("io.opentelemetry:opentelemetry-api:${versions.opentelemetry}")
+  testImplementation("io.opentelemetry.proto:opentelemetry-proto:0.11.0-alpha")
+
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.2")
+  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.6.2")
+  testRuntimeOnly("ch.qos.logback:logback-classic:1.2.3")
+
+  otel("io.opentelemetry.javaagent:opentelemetry-javaagent:${versions.opentelemetryJavaagent}")
+
+  add("codegen", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
+  add("codegen", "ch.qos.logback:logback-classic:1.2.3")
+  add("muzzleBootstrap", "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-annotation-support:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleBootstrap", "io.opentelemetry.javaagent:opentelemetry-javaagent-instrumentation-api:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleTooling", "io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleTooling", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleTooling", "org.slf4j:slf4j-simple:1.7.30")
+}
+
+tasks {
+  test {
+  }
+
+  compileJava {
+    options.release.set(8)
+  }
+
+  assemble.dependsOn(shadowJar)
+}
+
+muzzle {
+  pass {
+    group.set("javax.servlet")
+    module.set("javax.servlet-api")
+    versions.set("[3.0,)")
+    assertInverse.set(true)
+  }
+  pass {
+    group.set("javax.servlet")
+    module.set("servlet-api")
+    versions.set("[2.2, 3.0)")
+    assertInverse.set(true)
+  }
+}
